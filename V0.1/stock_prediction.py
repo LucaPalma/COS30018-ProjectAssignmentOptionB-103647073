@@ -40,7 +40,7 @@ def load_process_data(TRAIN_START, TRAIN_END, date_split=True, split_ratio=0.3, 
     # store_data specifies whether the generated data will be stored to file or not.
     # scale_feature specifies if you wish for the features to be scaled.
     # feature_columns is a list of features to be used in our model.
-
+    lookup_step = 1
     if feature_columns is None:
         feature_columns = ['adjclose', 'volume', 'open', 'high', 'low']
     DATA_SOURCE = "yahoo"
@@ -53,6 +53,11 @@ def load_process_data(TRAIN_START, TRAIN_END, date_split=True, split_ratio=0.3, 
     # ------------------------------------------------------------------------------
 
     data = yf.download(COMPANY, start=TRAIN_START, end=TRAIN_END, progress=False)
+    for col in feature_columns:
+        assert col in data.columns, f"'{col}' does not exist in the dataframe."
+    # add date as a column
+    if "date" not in data.columns:
+        data["date"] = data.index
 
     # For more details:
     # https://pandas.pydata.org/pandas-docs/stable/user_guide/dsintro.html
@@ -65,23 +70,20 @@ def load_process_data(TRAIN_START, TRAIN_END, date_split=True, split_ratio=0.3, 
     # 2) Use a different price value eg. mid-point of Open & Close
     # 3) Change the Prediction days
     # ------------------------------------------------------------------------------
-    PRICE_VALUE = "Close"
     result = {}
-
+    column_scaler = {}
     if scale_feature:
-        column_scaler = {}
-    # scale the data (prices) from 0 to 1
+        # scale the data (prices) from 0 to 1
         for column in feature_columns:
             scaler = MinMaxScaler(feature_range=(0, 1))
             # Note that, by default, feature_range=(0, 1). Thus, if you want a different
             # feature_range (min,max) then you'll need to specify it here
             data[column] = scaler.fit_transform(np.expand_dims(data[column].values, axis=1))
             column_scaler[column] = scaler
+        # add the MinMaxScaler instances to the result returned
+        result["column_scaler"] = column_scaler
 
-    # add the MinMaxScaler instances to the result returned
-    result["column_scaler"] = column_scaler
-    scaled_data = scaler.fit_transform(data[PRICE_VALUE].values.reshape(-1, 1))
-
+    data['future'] = data['adjclose'].shift(-lookup_step)
     data.dropna(inplace=True)
     #Drop NaN Data
 
