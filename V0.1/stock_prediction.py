@@ -58,7 +58,7 @@ def load_process_data(TRAIN_START, TRAIN_END, date_split=True, split_ratio=0.3, 
     # ------------------------------------------------------------------------------
     data = {}
     #checks if data has already been generated, if not create it.
-    if (os.path.isfile("scaleddatafile")):
+    if (os.path.isfile("datafile")):
         print("Did find data")
         data = pd.read_csv("datafile")
     else:
