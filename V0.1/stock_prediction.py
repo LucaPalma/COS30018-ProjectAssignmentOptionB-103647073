@@ -36,9 +36,10 @@ scalerData = {}
 PRICE_VALUE_UPPER = "Close"
 PRICE_VALUE_LOWER = "Open"
 
+
 # ------------------------------------------------------------------------------
 def load_process_data(TRAIN_START, TRAIN_END, date_split=True, split_ratio=0.3, store_data=True
-                      ,scale_min=0,scale_max=1,store_scaler=True):
+                      , scale_min=0, scale_max=1, store_scaler=True):
     # TRAIN_START is the starting date for the dataset as a y/m/d string e.g. '2022-01-01'.
     # TRAIN_END is the ending date for the dataset as a y/m/d string e.g. '2023-01-01'.
     # date_split specifies whether the date should be split by date (true) or randomly (false)
@@ -57,55 +58,56 @@ def load_process_data(TRAIN_START, TRAIN_END, date_split=True, split_ratio=0.3, 
     # If not, save the data into a directory
     # ------------------------------------------------------------------------------
     data = {}
-    #checks if data has already been generated, if not create it.
-    if (os.path.isfile("datafile")):
+    # checks if data has already been generated, if not create it.
+    if os.path.isfile("datafile"):
         print("Did find data")
         data = pd.read_csv("datafile")
     else:
         print("Didnt find data")
         data = yf.download(COMPANY, start=TRAIN_START, end=TRAIN_END, progress=False)
-        #takes the inputs from the parameters passed into function to create range of data.
-        #Generates a pandas data structure that contains dates ascociated with the elements listed in feature columns.
+        # takes the inputs from the parameters passed into function to create range of data.
+        # Generates a pandas data structure that contains dates ascociated with the elements listed in feature columns.
 
     # For more details:
     # https://pandas.pydata.org/pandas-docs/stable/user_guide/dsintro.html
     # ------------------------------------------------------------------------------
     # Prepare Data
     ## To do:
-        # 1) Check if data has been prepared before.
-        # If so, load the saved data
-        # If not, save the data into a directory
-        # 2) Use a different price value eg. mid-point of Open & Close
-        # 3) Change the Prediction days
-        # ------------------------------------------------------------------------------
+    # 1) Check if data has been prepared before.
+    # If so, load the saved data
+    # If not, save the data into a directory
+    # 2) Use a different price value eg. mid-point of Open & Close
+    # 3) Change the Prediction days
+    # ------------------------------------------------------------------------------
     result = {}
-    
+
     data.dropna(inplace=True)
-    #Drop Empty Data  
+    # Drop Empty Data
 
-    scaler =MinMaxScaler(feature_range=(scale_min,scale_max))
-    scaled_data = scaler.fit_transform((data[PRICE_VALUE_UPPER].values.reshape(-1, 1)+data[PRICE_VALUE_UPPER].values.reshape(-1, 1))/2) 
-    #Function stores scaler data for later use if needed.
+    scaler = MinMaxScaler(feature_range=(scale_min, scale_max))
+    scaled_data = scaler.fit_transform(
+        (data[PRICE_VALUE_UPPER].values.reshape(-1, 1) + data[PRICE_VALUE_UPPER].values.reshape(-1, 1)) / 2)
+    # Function stores scaler data for later use if needed.
     scalerData = {
-    "minScaler": [scale_min],
-    "maxScaler": [scale_max]
-             }
-        # Flatten and normalise the data
-        # First, we reshape a 1D array(n) to 2D array(n,1)
-        # We have to do that because sklearn.preprocessing.fit_transform()
-        # requires a 2D array
-        # Here n == len(scaled_data)
-        # Then, we scale the whole array to the range (0,1)
-        # The parameter -1 allows (np.)reshape to figure out the array size n automatically
-        # values.reshape(-1, 1)
-        # https://stackoverflow.com/questions/18691084/what-does-1-mean-in-numpy-reshape'
-        # When reshaping an array, the new shape must contain the same number of elements
-        # as the old shape, meaning the products of the two shapes' dimensions must be equal.
-        # When using a -1, the dimension corresponding to the -1 will be the product of
-        # the dimensions of the original array divided by the product of the dimensions
-        # given to reshape so as to maintain the same number of elements.
+        "minScaler": [scale_min],
+        "maxScaler": [scale_max]
+    }
+    # Flatten and normalise the data
+    # First, we reshape a 1D array(n) to 2D array(n,1)
+    # We have to do that because sklearn.preprocessing.fit_transform()
+    # requires a 2D array
+    # Here n == len(scaled_data)
+    # Then, we scale the whole array to the range (0,1)
+    # The parameter -1 allows (np.)reshape to figure out the array size n automatically
+    # values.reshape(-1, 1)
+    # https://stackoverflow.com/questions/18691084/what-does-1-mean-in-numpy-reshape'
+    # When reshaping an array, the new shape must contain the same number of elements
+    # as the old shape, meaning the products of the two shapes' dimensions must be equal.
+    # When using a -1, the dimension corresponding to the -1 will be the product of
+    # the dimensions of the original array divided by the product of the dimensions
+    # given to reshape so as to maintain the same number of elements.
 
-        # Number of days to look back to base the prediction
+    # Number of days to look back to base the prediction
     PREDICTION_DAYS = 60  # Original
 
     """
@@ -127,34 +129,35 @@ def load_process_data(TRAIN_START, TRAIN_END, date_split=True, split_ratio=0.3, 
 
     X, y = [], []
     for x in range(PREDICTION_DAYS, len(scaled_data)):
-            X.append(scaled_data[x - PREDICTION_DAYS:x])
-            y.append(scaled_data[x])
+        X.append(scaled_data[x - PREDICTION_DAYS:x])
+        y.append(scaled_data[x])
 
     # convert to numpy arrays
     X = np.array(X)
     y = np.array(y)
-   
+
     if date_split:
         # split the dataset into training & testing sets by date (not randomly splitting)
         train_samples = int((1 - split_ratio) * len(X))
-        #this line takes in the split ratio and finds its opposite value for train samples, it then multiplies by the amount of prediction days.
+        # this line takes in the split ratio and finds its opposite value for train samples, it then multiplies by the amount of prediction days.
         result["X_train"] = X[:train_samples]
         result["y_train"] = y[:train_samples]
-        result["X_test"]  = X[train_samples:]
-        result["y_test"]  = y[train_samples:]
-    else:    
+        result["X_test"] = X[train_samples:]
+        result["y_test"] = y[train_samples:]
+    else:
         # split the dataset randomly
-        result["X_train"], result["X_test"], result["y_train"], result["y_test"] = train_test_split(X, y, 
-                                                                                test_size=split_ratio, shuffle=False)
-        #Uses train_test_split import which uses given ratio parameter and two numpy arrays to split another array randomly between them.
+        result["X_train"], result["X_test"], result["y_train"], result["y_test"] = train_test_split(X, y,
+                                                                                                    test_size=split_ratio,
+                                                                                                    shuffle=False)
+        # Uses train_test_split import which uses given ratio parameter and two numpy arrays to split another array randomly between them.
     x_train = X
     y_train = y
     # assigning x and y values to x_train and y_train for use in the lower model fitting.
 
     if store_data:
         data.to_csv("datafile")
-    #if parameter set to true, stores the scaled data as a csv file.
-    
+    # if parameter set to true, stores the scaled data as a csv file.
+
     # ------------------------------------------------------------------------------
     # Build the Model
     ## TO DO:
@@ -235,14 +238,14 @@ def load_process_data(TRAIN_START, TRAIN_END, date_split=True, split_ratio=0.3, 
     # your pre-trained model and run it on the new input for which the prediction
     # need to be made.
 
-    load_test_data(TRAIN_START,TRAIN_END,COMPANY,data,model,scaler,PREDICTION_DAYS)
+    load_test_data(TRAIN_START, TRAIN_END, COMPANY, data, model, scaler, PREDICTION_DAYS)
+
 
 # ------------------------------------------------------------------------------
 # Test the model accuracy on existing data
 # ------------------------------------------------------------------------------
 # Load the test data
-def load_test_data(TRAIN_START,TRAIN_END,COMPANY,data,model,scaler,PREDICTION_DAYS):
-
+def load_test_data(TRAIN_START, TRAIN_END, COMPANY, data, model, scaler, PREDICTION_DAYS):
     PRICE_VALUE = "Close"
     test_data = yf.download(COMPANY, start=TRAIN_START, end=TRAIN_END, progress=False)
 
@@ -310,7 +313,6 @@ def load_test_data(TRAIN_START,TRAIN_END,COMPANY,data,model,scaler,PREDICTION_DA
     # Predict next day
     # ------------------------------------------------------------------------------
 
-
     real_data = [model_inputs[len(model_inputs) - PREDICTION_DAYS:, 0]]
     real_data = np.array(real_data)
     real_data = np.reshape(real_data, (real_data.shape[0], real_data.shape[1], 1))
@@ -335,5 +337,5 @@ def load_test_data(TRAIN_START,TRAIN_END,COMPANY,data,model,scaler,PREDICTION_DA
     # Can you combine these different techniques for a better prediction??
 
 
-#begin loading and processing.
-load_process_data('2022-01-01','2023-01-01',True,0.3,True,0,1,True)
+# begin loading and processing.
+load_process_data('2022-01-01', '2023-01-01', True, 0.3, True, 0, 1, True)
