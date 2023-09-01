@@ -35,8 +35,8 @@ from sklearn.model_selection import train_test_split
 scalerData = {}
 PRICE_VALUE_UPPER = "Close"
 PRICE_VALUE_LOWER = "Open"
-displayType = "boxplot" # Can be set to graph, candle or boxplot
-diplayTradingDays = 20 # from task B.3 select n trading days for chart to display.
+displayType = "candle" # Can be set to graph, candle or boxplot
+diplayTradingDays = 5 # from task B.3 select n trading days for chart to display.
 
 
 # ------------------------------------------------------------------------------
@@ -364,8 +364,8 @@ def displayCandle(data,COMPANY):
         #Same as previous lines except finding net losses.
 
         fig = plt.figure(figsize =(15,7)) #create new figure for chart and set its size
-
         #Grey Lines
+        
         plt.vlines(x=chart_small["Date"], ymin=chart_small["Low"], ymax=chart_small["High"],color="grey")
         #Set min and max of chart using low and high values from data, set line color to grey.
 
@@ -380,6 +380,7 @@ def displayCandle(data,COMPANY):
         plt.yticks(range(100,240,20), ["{} $".format(v) for v in range(100,240,20)])
         #formats y axis to display $ and increment in ticks of 20 between 100-240
         plt.xticks(rotation = 75)
+        plt.subplots_adjust(bottom=0.25) #Make sure dates don't get cutoff screen
         #rotate dates for easier reading.
 
         plt.xlabel("Date")
@@ -398,6 +399,7 @@ def displayBoxPlot(data,COMPANY):
         plt.xlabel("Date")
         plt.ylabel(f"{COMPANY} Share Price")
         plt.title("Bar Chart")
+        plt.subplots_adjust(bottom=0.25) #Make sure dates don't get cutoff screen
         #update labels, layour and title
 
         plt.xticks(rotation = 75)
