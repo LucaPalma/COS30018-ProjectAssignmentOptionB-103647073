@@ -16,21 +16,17 @@
 # pip install pandas-datareader
 # pip install yfinance
 
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import pandas_datareader as web
-import datetime as dt
-import tensorflow as tf
-import yfinance as yf
 import os
 import os.path
 
-from tensorflow import keras
-from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, LSTM, InputLayer
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import yfinance as yf
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.layers import Dense, Dropout, LSTM
+from tensorflow.keras.models import Sequential
 
 scalerData = {}
 PRICE_VALUE_UPPER = "Close"
