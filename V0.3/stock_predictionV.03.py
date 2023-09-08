@@ -24,7 +24,7 @@ import pickle
 from tensorflow import keras
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, LSTM, InputLayer
+from tensorflow.keras.layers import Dense, Dropout, LSTM, InputLayer, SimpleRNN, GRU
 from sklearn.model_selection import train_test_split
 
 # Parameters
@@ -36,7 +36,7 @@ PRICE_VALUE_UPPER = "Close"
 PRICE_VALUE_LOWER = "Open"
 
 # Display Parameters
-displayType = "boxplot"  # Can be set to graph, candle or boxplot
+displayType = "graph"  # Can be set to graph, candle or boxplot
 displayTradingDays = 25  # from task B.3 select n trading days for chart to display.
 
 # Data loading and processing Parameters
@@ -49,14 +49,13 @@ scaleMin = 0
 scaleMax = 1
 
 # Model building parameters
-Cell_Units = 50
-Dense_Units = 1
-Dropout_Amt = 0.2
-Epoch_Count = 25
-Batch_Count = 32
-Layer_Name = "DeepLearningLayer"
-modelType = LSTM
-Layer_Number = 2
+modelType = SimpleRNN  # Name of layer can be LSTM, RNN, GRU etc
+Cell_Units = 40  # Number of units(neurons) in the chosen layer.
+Dense_Units = 1   # Number of units(neurons) in dense layers. Defines size of the output.
+Dropout_Amt = 0.3  # Frequency of input units being set to 0 to reduce overfitting.
+Epoch_Count = 20  # Number of repetitions or epochs
+Batch_Count = 32  # Amount of input samples trained at a time
+Layer_Number = 2  # Number of layers in the model.
 
 
 def load_process_data(TRAIN_START, TRAIN_END, date_split=True, split_ratio=0.3, store_data=True,
@@ -108,7 +107,7 @@ def load_process_data(TRAIN_START, TRAIN_END, date_split=True, split_ratio=0.3, 
     # model = build_model(x_train, y_train, Cell_Units, Dense_Units, Dropout_Amt, Epoch_Count, Batch_Count, Layer_Name)
 
     model = build_customModel(x_train, y_train, Cell_Units, Dense_Units, Dropout_Amt,
-                              Epoch_Count, Batch_Count, Layer_Name, modelType, Layer_Number)
+                              Epoch_Count, Batch_Count, modelType, Layer_Number)
 
     load_test_data(TRAIN_START, TRAIN_END, COMPANY, data, model, scaler, PREDICTION_DAYS,
                    displayType)
@@ -137,26 +136,35 @@ def build_model(x_train, y_train, unitsLSTM, unitsDense, dropOutAmt, epochAmt, b
 
 
 def build_customModel(x_train, y_train, unitsCell, unitsDense, dropOutAmt, epochAmt,
-                      batchAmt, layerName, cell, layerNumber):
+                      batchAmt, cell, layerNumber):
     model = Sequential()
     for i in range(layerNumber):
         if i == 0:
-            # Runs on the first layer of the model, uses trained data.
+            # Runs on the first layer of the model, uses trained data and represents the
+            # input layer for model as we give it the previously found input shape.
             model.add(cell(units=unitsCell, return_sequences=True, input_shape=(x_train.shape[1], 1)))
         elif i == layerNumber - 1:
-            # Runs on the last layer of the model.
+            # Runs on the last layer of the model. As the next layer will be dense return_sequences
+            # must be set to false as Dense layers do not require a three-dimensional sequence.
             model.add(cell(units=unitsCell, return_sequences=False))
         else:
             # Hidden layers
             model.add(cell(units=unitsCell, return_sequences=True))
 
-        # Add dropout following each layer
+        # Add dropout following each layer, helps prevent overfitting
+        # by randomly setting inputs to 0 by frequency of given variable.
         model.add(Dropout(dropOutAmt))
 
     model.add(Dense(units=unitsDense))
-    # Add a Dense layer
+    # Add a Dense layer to condense training of previous layers into single dataset for
+    # the prediction. Otherwise, would output as many datasets as units given to previous layers.
     model.compile(optimizer='adam', loss='mean_squared_error')
+    # sets the algorithm for optimization and its loss function.
     model.fit(x_train, y_train, epochs=epochAmt, batch_size=batchAmt)
+    # finally the model is trained on the separated training data.
+    # epoch amount refers to amount of rounds of training, can cause overfitting if overperformed.
+    # batch amount refers to amount of input samples trained at a time, reduces computational requirement
+    # of training with larger data sets instead of updating the model for every single input.
     return model
 
 
