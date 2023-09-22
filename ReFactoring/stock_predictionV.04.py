@@ -36,7 +36,7 @@ PRICE_VALUE_UPPER = "Close"
 PRICE_VALUE_LOWER = "Open"
 
 # Display Parameters
-displayType = "chart"  # Can be set to graph, candle or boxplot
+displayType = "graph"  # Can be set to graph, candle or boxplot
 displayTradingDays = 25  # from task B.3 select n trading days for chart to display.
 
 # Data loading and processing Parameters

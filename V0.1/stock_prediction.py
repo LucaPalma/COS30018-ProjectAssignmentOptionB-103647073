@@ -32,6 +32,8 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM, InputLayer
 from sklearn.model_selection import train_test_split
 
+import seaborn as sns
+
 scalerData = {}
 PRICE_VALUE_UPPER = "Close"
 PRICE_VALUE_LOWER = "Open"
