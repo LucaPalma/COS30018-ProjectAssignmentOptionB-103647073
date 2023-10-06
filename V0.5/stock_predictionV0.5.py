@@ -32,20 +32,23 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM, InputLayer, SimpleRNN, GRU
 from sklearn.model_selection import train_test_split
 from pickle import dump, load
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.arima.model import ARIMA
+from pmdarima import auto_arima
 
 # Parameters
 # General
 company = "TSLA"
-predictionDays = 50
+predictionDays = 25
 
 # Display Parameters
 displayType = ""  # Can be set to graph, candle or boxplot
-displayTradingDays = 25  # from task B.3 select n trading days for chart to display.
+displayTradingDays = 100  # from task B.3 select n trading days for chart to display.
 
 # Data loading and processing Parameters    
 FEATURES = ['High','Low','Open','Close','Volume']#Selected features of data to use for training.
-startDate = '2022-01-01'
-endDate = '2023-01-01'
+startDate = '2021-05-01'
+endDate = '2021-10-01'
 splitByDate = True
 splitRatio = 0.5
 dataStore = True
@@ -61,6 +64,13 @@ epochCount = 64 # Number of repetitions or epochs
 batchCount = 12  # Amount of input samples trained at a time
 layerNumber = 2  # Number of layers in the model.
 outputCount = 10 # Number of days to predict ahead.
+
+#Sarima model parameters.
+seasonalRegression = 1
+seasonalIntegrated = 2
+seasonalMovingAverage = 2
+
+season = 9
 
 # Global Storage
 normal = MinMaxScaler()
@@ -215,6 +225,62 @@ def dataSplit(tData,index):
     y = np.array(y)
     return x,y
         
+def sarimaModel():
+    dl = yf.download(company, start=startDate, end=endDate)
+    df = pd.DataFrame(dl)
+
+    df = df.asfreq('d', method='pad')
+    # print(df.index)
+    df = df.dropna()
+
+    # print('Shape of data',df.shape)
+    # print(df.head())
+    # ad_test(df['Close'])
+
+    # Used for testing efficient variable settings of sarima model.
+    # stepwise_fit = auto_arima(df['Close'], trace=True, suppress_warnings=True,seasonal= True) 
+    # print(df.shape)
+    train=df.iloc[:-predictionDays]
+    test=df.iloc[-predictionDays:]
+    # print(train.shape,test.shape)
+
+    model=ARIMA(train['Close'],seasonal_order= (seasonalRegression,seasonalIntegrated,seasonalMovingAverage,season))
+    model=model.fit()
+    # print(model.summary())
+
+    start=len(train)
+    end=len(train)+len(test)-1
+    pred = model.predict(start,end)
+    futurepred = model.predict(end,end + outputCount)
+    fig, ax1 = plt.subplots(figsize=(16, 8))
+    plt.plot(test['Close'],color="black", label=f"Testing {company} Data")
+    plt.plot(train['Close'],color="blue", label=f"Training {company} Data")
+
+    plt.plot(pred, color="green", label=f"Predicted {company} Price")
+    plt.plot(futurepred, color="orange", label=f"Future Prediction {company} Price")
+
+    plt.legend()
+    plt.show()
+
+
+
+
+
+def ad_test(dataset):
+     dftest = adfuller(dataset, autolag = 'AIC')
+     print("1. ADF : ",dftest[0])
+     print("2. P-Value : ", dftest[1])
+     print("3. Num Of Lags : ", dftest[2])
+     print("4. Num Of Observations Used For ADF Regression:",      dftest[3])
+     print("5. Critical Values :")
+     for key, val in dftest[4].items():
+         print("\t",key, ": ", val)    
+
+
+
+
+
+
 
 def loadPredict(model,yTest,xTest,closeIndex):
 #----------------------------------------------Load Initial Data------------------------------------------
@@ -233,7 +299,6 @@ def loadPredict(model,yTest,xTest,closeIndex):
 
     # Prepare Df for multi forecasting
     x_test_unscaled_df, y_pred_df, y_test_unscaled_df = prepare_df(0, xTest, yTest, yPred,closeIndex)
-    title = f"Predictions vs y_test"
 
     # Predict Batch
     x_test_latest_batch = np_scaled[-50:,:].reshape(1,50,5)
@@ -263,7 +328,7 @@ def prepare_df(i, x, y, y_pred_unscaled,index_close):
     return x_test_unscaled_df, y_pred_df, y_test_unscaled_df
 
 def plot_multi_test_forecast(x_test_unscaled_df, y_test_unscaled_df, y_pred_df, title): 
-    # Package y_pred_unscaled and y_test_unscaled into a dataframe with columns pred and true   
+    # Place y_pred_unscaled and y_test_unscaled into a dataframe with columns pred and true   
     if type(y_test_unscaled_df) == pd.core.frame.DataFrame:
         df_merge = y_pred_df.join(y_test_unscaled_df, how='left')
     else:
@@ -276,7 +341,13 @@ def plot_multi_test_forecast(x_test_unscaled_df, y_test_unscaled_df, y_pred_df, 
     fig, ax = plt.subplots(figsize=(17, 8))
     plt.title(title, fontsize=12)
     ax.set(ylabel = company + "Stock Price")
-    sns.lineplot(data = df_merge_, linewidth=2.0, ax=ax)
+    # Get original test data
+    global data_filtered_ext
+    global train_data_len
+    valid = pd.DataFrame(data_filtered_ext['Close'][train_data_len:]).rename(columns={'Close': 'y_test'})
+    df_union = pd.concat([df_merge_, valid])
+
+    sns.lineplot(data = df_union, linewidth=2.0, ax=ax)
     plt.show()
     
 
@@ -380,4 +451,5 @@ def chartData(data,chartPredScaled):
         plt.show()
 
 
-load_multivariate_data()
+# load_multivariate_data()
+sarimaModel()
