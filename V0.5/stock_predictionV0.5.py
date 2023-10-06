@@ -10,7 +10,6 @@
 # YouTube link: https://www.youtube.com/watch?v=PuZY9q-aKLw
 # By: NeuralNine
 
-#Refactoring for task 5 based on: https://www.relataly.com/stock-price-prediction-multi-output-regression-using-neural-networks-in-python/5800/
 
 
 import math
@@ -51,7 +50,7 @@ displayTradingDays = 100  # from task B.3 select n trading days for chart to dis
 FEATURES = ['High','Low','Open','Close','Volume']#Selected features of data to use for training.
 startDate = '2021-05-01'
 endDate = '2021-10-01'
-predictDate = '2021-10-12' #Should be same amount of days in future as outputCount
+predictDate = '2021-10-11' #Should be same amount of days in future as outputCount
 splitByDate = True
 splitRatio = 0.8
 dataStore = True
@@ -59,21 +58,22 @@ scaleMin = 0
 scaleMax = 1
 
 # Model building parameters
-modelType = SimpleRNN # Name of layer can be LSTM, SimpleRNN, GRU etc
-cellUnits = 100  # Number of units(neurons) in the chosen layer.
+modelType = GRU # Name of layer can be LSTM, SimpleRNN, GRU etc
+modelString = "GRU"
+cellUnits = 250 # Number of units(neurons) in the chosen layer.
 denseUnits = 5  # Number of units(neurons) in dense layers. Should be equal to number of features
-dropoutAmt = 0.2  # Frequency of input units being set to 0 to reduce overfitting.
+dropoutAmt = 0.1 # Frequency of input units being set to 0 to reduce overfitting.
 epochCount = 32 # Number of repetitions or epochs
-batchCount = 4  # Amount of input samples trained at a time
-layerNumber = 2  # Number of layers in the model.
-outputCount = 10 # Number of days to predict ahead.
+batchCount = 8  # Amount of input samples trained at a time
+layerNumber = 3  # Number of layers in the model.
+outputCount = 7 # Number of days to predict ahead.
 
 #Sarima model parameters.
-seasonalRegression = 1
+seasonalRegression = 3
 seasonalIntegrated = 2
-seasonalMovingAverage = 2
-season = 9
-weight = 0.6
+seasonalMovingAverage = 1
+season = 10
+weight = 0.4
 
 # Global Storage
 normal = MinMaxScaler()
@@ -246,7 +246,7 @@ def sarimaStackedModel():
     # ad_test(df['Close'])
 
     # Used for testing efficient variable settings of sarima model.
-    # stepwise_fit = auto_arima(df['Close'], trace=True, suppress_warnings=True,seasonal= True) 
+    stepwise_fit = auto_arima(df['Close'], trace=True, suppress_warnings=True,seasonal= True) 
     # print(df.shape)
     train=df.iloc[:-predictionDays]
     test=df.iloc[-predictionDays-1:]
@@ -281,7 +281,7 @@ def sarimaStackedModel():
     combinedData["SarimaW"] = combinedData.SarimaR * (weight)
     combinedData["Ensemble"] = combinedData.OtherW + combinedData.SarimaW
     print(combinedData)
-    #----------------------------------------Plotting Data------------------------------------------------------------
+    #----------------------------------------Plotting Results------------------------------------------------------------
     fig, ax1 = plt.subplots(figsize=(16, 8))
     plt.plot(test['Close'],color="lightblue", label=f"Testing {company} Data")
     plt.plot(train['Close'],color="black", label=f"Training {company} Data")
@@ -292,6 +292,9 @@ def sarimaStackedModel():
     dl = yf.download(company, start=endDate, end=predictDate)
     plt.plot(dl['Close'], color="blue", label=f"Actual Future {company} Price")
 
+    plt.xlabel("Date")
+    plt.ylabel(f"{company} Share Price")
+    plt.title(f"Ensemble Model of {modelString} and SARIMA.")
     plt.legend()
     plt.show()
 
