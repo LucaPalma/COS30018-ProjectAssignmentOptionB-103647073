@@ -31,8 +31,6 @@ from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM, InputLayer, SimpleRNN, GRU
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import StackingClassifier
-from sklearn.linear_model import LogisticRegression
 from pickle import dump, load
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.arima.model import ARIMA
@@ -51,20 +49,19 @@ displayTradingDays = 100  # from task B.3 select n trading days for chart to dis
 FEATURES = ['High','Low','Open','Close','Volume']#Selected features of data to use for training.
 startDate = '2021-05-01'
 endDate = '2021-10-01'
-predictDate = '2021-10-12' #Should be same amount of days in future as outputCount
 splitByDate = True
-splitRatio = 0.8
+splitRatio = 0.5
 dataStore = True
 scaleMin = 0
 scaleMax = 1
 
 # Model building parameters
-modelType = SimpleRNN # Name of layer can be LSTM, SimpleRNN, GRU etc
-cellUnits = 100  # Number of units(neurons) in the chosen layer.
+modelType = GRU # Name of layer can be LSTM, SimpleRNN, GRU etc
+cellUnits = 125  # Number of units(neurons) in the chosen layer.
 denseUnits = 5  # Number of units(neurons) in dense layers. Should be equal to number of features
 dropoutAmt = 0.2  # Frequency of input units being set to 0 to reduce overfitting.
-epochCount = 32 # Number of repetitions or epochs
-batchCount = 4  # Amount of input samples trained at a time
+epochCount = 64 # Number of repetitions or epochs
+batchCount = 12  # Amount of input samples trained at a time
 layerNumber = 2  # Number of layers in the model.
 outputCount = 10 # Number of days to predict ahead.
 
@@ -72,8 +69,8 @@ outputCount = 10 # Number of days to predict ahead.
 seasonalRegression = 1
 seasonalIntegrated = 2
 seasonalMovingAverage = 2
+
 season = 9
-weight = 0.6
 
 # Global Storage
 normal = MinMaxScaler()
@@ -83,7 +80,6 @@ rawData = pd.DataFrame()
 global data_filtered_ext
 global train_data_len
 global np_scaled
-global basePred
 
 def load_multivariate_data():
 
@@ -216,9 +212,6 @@ def build_model(data, npDataScaled):
     loadPredict(model,y_test,x_test,closeIndex)
 
 
-    
-
-
 def dataSplit(tData,index):
     #Used in build_model function.
     x, y = [], []
@@ -232,8 +225,7 @@ def dataSplit(tData,index):
     y = np.array(y)
     return x,y
         
-def sarimaStackedModel():
-    #----------------------------------------Downloading/Splitting Data------------------------------------------------
+def sarimaModel():
     dl = yf.download(company, start=startDate, end=endDate)
     df = pd.DataFrame(dl)
 
@@ -249,51 +241,29 @@ def sarimaStackedModel():
     # stepwise_fit = auto_arima(df['Close'], trace=True, suppress_warnings=True,seasonal= True) 
     # print(df.shape)
     train=df.iloc[:-predictionDays]
-    test=df.iloc[-predictionDays-1:]
+    test=df.iloc[-predictionDays:]
     # print(train.shape,test.shape)
-    #----------------------------------------Training Sarima Model---------------------------------------------------
+
     model=ARIMA(train['Close'],seasonal_order= (seasonalRegression,seasonalIntegrated,seasonalMovingAverage,season))
-    #----------------------------------------Fitting Sarima Model---------------------------------------------------
-    model2=model.fit()
-
+    model=model.fit()
     # print(model.summary())
+
     start=len(train)
-    end=len(train)+len(test)
-    #----------------------------------------Sarima Predictions-----------------------------------------------------
-    pred = model2.predict(start,end)
-    futurepred = model2.predict(end,end + outputCount - 1) 
-    #----------------------------------------Create Ensemble Predictions---------------------------------------------------
-    model2 = load_multivariate_data() # Original model v.04 code.
-    estimator_list = [
-    ('SARIMA',model), ('Other', model2) ]
-    stack_model = StackingClassifier(
-    estimators=estimator_list, final_estimator=LogisticRegression())
-    stack_model = model.fit()
-    stackPred = stack_model.predict(start,end)
-    
-    global basePred
-    basePred.index = futurepred.index
-    #----------------------------------------Stack Models, Print Esemble Data---------------------------------------
-    combinedData = basePred.join(futurepred)
-    combinedData = combinedData.set_axis(['OtherR','SarimaR'], axis=1)
-    stackPred.head()
-    combinedData["OtherW"] = combinedData.OtherR * (1-weight)
-    combinedData["SarimaW"] = combinedData.SarimaR * (weight)
-    combinedData["Ensemble"] = combinedData.OtherW + combinedData.SarimaW
-    print(combinedData)
-    #----------------------------------------Plotting Data------------------------------------------------------------
+    end=len(train)+len(test)-1
+    pred = model.predict(start,end)
+    futurepred = model.predict(end,end + outputCount)
     fig, ax1 = plt.subplots(figsize=(16, 8))
-    plt.plot(test['Close'],color="lightblue", label=f"Testing {company} Data")
-    plt.plot(train['Close'],color="black", label=f"Training {company} Data")
+    plt.plot(test['Close'],color="black", label=f"Testing {company} Data")
+    plt.plot(train['Close'],color="blue", label=f"Training {company} Data")
 
-    plt.plot(pred, color="orange", label=f"Predicted {company} Price")
-    plt.plot(combinedData["Ensemble"], color="red", label=f"Ensemble Prediction {company} Price")
-
-    dl = yf.download(company, start=endDate, end=predictDate)
-    plt.plot(dl['Close'], color="blue", label=f"Actual Future {company} Price")
+    plt.plot(pred, color="green", label=f"Predicted {company} Price")
+    plt.plot(futurepred, color="orange", label=f"Future Prediction {company} Price")
 
     plt.legend()
     plt.show()
+
+
+
 
 
 def ad_test(dataset):
@@ -325,7 +295,6 @@ def loadPredict(model,yTest,xTest,closeIndex):
     global pred
     # Unscale predictions
     yPred = pred.inverse_transform(yPredScaled)
-
     yTestUnscaled = pred.inverse_transform(yTest).reshape(-1,outputCount)
 
     # Prepare Df for multi forecasting
@@ -336,7 +305,6 @@ def loadPredict(model,yTest,xTest,closeIndex):
 
     # Predict on the batch
     y_pred_scaled = model.predict(x_test_latest_batch)
-
     y_pred_unscaled = pred.inverse_transform(y_pred_scaled)
 
     # Prepare the data and plot the input data and the predictions
@@ -370,16 +338,17 @@ def plot_multi_test_forecast(x_test_unscaled_df, y_test_unscaled_df, y_pred_df, 
     df_merge_ = pd.concat([x_test_unscaled_df, df_merge]).reset_index(drop=True)
     
     # Plot the linecharts
-    """
-    plt.plot(df_merge_,color="blue", label=f"Merge2")
-    plt.plot(df_merge,color="black", label=f"Merge1")
-    plt.plot(x_test_unscaled_df, color="green", label=f"xTestUnscaled")
-    plt.plot(y_pred_df, color="orange", label=f"yPredDf")
-    plt.legend()
+    fig, ax = plt.subplots(figsize=(17, 8))
+    plt.title(title, fontsize=12)
+    ax.set(ylabel = company + "Stock Price")
+    # Get original test data
+    global data_filtered_ext
+    global train_data_len
+    valid = pd.DataFrame(data_filtered_ext['Close'][train_data_len:]).rename(columns={'Close': 'y_test'})
+    df_union = pd.concat([df_merge_, valid])
+
+    sns.lineplot(data = df_union, linewidth=2.0, ax=ax)
     plt.show()
-    """
-    global basePred 
-    basePred = df_merge
     
 
 
@@ -481,4 +450,6 @@ def chartData(data,chartPredScaled):
 
         plt.show()
 
-sarimaStackedModel()
+
+# load_multivariate_data()
+sarimaModel()
