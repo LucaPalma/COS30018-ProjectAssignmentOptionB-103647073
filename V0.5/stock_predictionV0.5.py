@@ -50,7 +50,7 @@ displayTradingDays = 100  # from task B.3 select n trading days for chart to dis
 FEATURES = ['High','Low','Open','Close','Volume']#Selected features of data to use for training.
 startDate = '2021-05-01'
 endDate = '2021-10-01'
-predictDate = '2021-10-11' #Should be same amount of days in future as outputCount
+predictDate = '2021-10-10' #Should be same amount of days in future as outputCount
 splitByDate = True
 splitRatio = 0.8
 dataStore = True
@@ -60,8 +60,8 @@ scaleMax = 1
 # Model building parameters
 modelType = GRU # Name of layer can be LSTM, SimpleRNN, GRU etc
 modelString = "GRU"
-cellUnits = 250 # Number of units(neurons) in the chosen layer.
-denseUnits = 5  # Number of units(neurons) in dense layers. Should be equal to number of features
+cellUnits = 300 # Number of units(neurons) in the chosen layer.
+denseUnits = 8  # Number of units(neurons) in dense layers. Should be equal to number of features
 dropoutAmt = 0.1 # Frequency of input units being set to 0 to reduce overfitting.
 epochCount = 32 # Number of repetitions or epochs
 batchCount = 8  # Amount of input samples trained at a time
@@ -69,11 +69,11 @@ layerNumber = 3  # Number of layers in the model.
 outputCount = 7 # Number of days to predict ahead.
 
 #Sarima model parameters.
-seasonalRegression = 3
+seasonalRegression = 1
 seasonalIntegrated = 2
-seasonalMovingAverage = 1
-season = 10
-weight = 0.4
+seasonalMovingAverage = 3
+season = 9
+weight = 0.7
 
 # Global Storage
 normal = MinMaxScaler()
